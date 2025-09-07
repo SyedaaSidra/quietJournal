@@ -35,5 +35,17 @@ public class UserService {
             .createdAt(savedUser.getCreatedAt())
             .build();
   }
+  public UserResponseDto findByUsername(String username) {
+    User user = userRepository.findByUsername(username)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+    return UserResponseDto.builder()
+            .id(user.getId())
+            .username(user.getUsername())
+            .displayName(user.getDisplayName())
+            .avatarUrl(user.getAvatarUrl())
+            .createdAt(user.getCreatedAt())
+            .build();
+  }
+
 }
 
