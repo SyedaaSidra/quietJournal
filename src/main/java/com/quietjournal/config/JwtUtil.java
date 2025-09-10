@@ -2,6 +2,7 @@ package com.quietjournal.config;
 
 
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -25,4 +26,13 @@ public class JwtUtil {
                 .signWith(secretKey)
                 .compact();
     }
+
+    public Claims validateToken(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(secretKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
 }
