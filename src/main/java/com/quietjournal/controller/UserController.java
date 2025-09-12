@@ -2,7 +2,10 @@ package com.quietjournal.controller;
 import com.quietjournal.dto.UserDto;
 import com.quietjournal.dto.UserResponseDto;
 import com.quietjournal.service.UserService;
+import org.springframework.security.core.Authentication;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,7 +21,12 @@ public class UserController {
         this.userService = userService;
     }
 
-
+    @GetMapping("/me")
+    public ResponseEntity<UserResponseDto> getCurrentUser(Authentication authentication) {
+        String username = authentication.getName();
+        UserResponseDto user = userService.findByUsername(username);
+        return ResponseEntity.ok(user);
+    }
 
     // ➡️ Get user by ID
     @GetMapping("/{id}")
