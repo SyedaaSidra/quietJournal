@@ -7,6 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
 
 @Service
 public class UserService {
@@ -17,7 +21,13 @@ public class UserService {
   @Autowired
   private PasswordEncoder passwordEncoder;
 
+
   public UserResponseDto registerUser(UserDto userDto) {
+
+    if (userRepository.existsByUsername(userDto.getUsername())) {
+      throw new RuntimeException("Username already taken");
+    }
+
     User user = User.builder()
             .username(userDto.getUsername())
             .displayName(userDto.getDisplayName())
@@ -27,17 +37,28 @@ public class UserService {
 
     User savedUser = userRepository.save(user);
 
-    return UserResponseDto.builder()
-            .id(savedUser.getId())
-            .username(savedUser.getUsername())
-            .displayName(savedUser.getDisplayName())
-            .avatarUrl(savedUser.getAvatarUrl())
-            .createdAt(savedUser.getCreatedAt())
-            .build();
+    return mapToDto(savedUser);
   }
   public UserResponseDto findByUsername(String username) {
     User user = userRepository.findByUsername(username)
             .orElseThrow(() -> new RuntimeException("User not found"));
+    return  mapToDto(user);
+  }
+
+  public UserResponseDto getUserById(String id) {
+    Optional<User> user = userRepository.findById(id);
+    return user.map(this::mapToDto).orElseThrow(() -> new RuntimeException("User not found"));
+  }
+
+
+  public List<UserResponseDto> getAllUsers() {
+    return userRepository.findAll()
+            .stream()
+            .map(this::mapToDto)
+            .collect(Collectors.toList());
+  }
+
+   private UserResponseDto mapToDto(User user) {
     return UserResponseDto.builder()
             .id(user.getId())
             .username(user.getUsername())
@@ -45,7 +66,7 @@ public class UserService {
             .avatarUrl(user.getAvatarUrl())
             .createdAt(user.getCreatedAt())
             .build();
-  }
+   }
 
 }
 
