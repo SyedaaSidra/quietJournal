@@ -41,7 +41,7 @@ public class AuthController {
                 .orElseThrow(() -> new RuntimeException("Invalid username or password"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            return ResponseEntity.badRequest().body("Invalid username or password");
+            throw new RuntimeException("Invalid username or password");
         }
 
         String token = jwtUtil.generateToken(user.getUsername());
