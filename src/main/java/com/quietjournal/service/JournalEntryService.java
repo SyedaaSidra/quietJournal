@@ -4,6 +4,8 @@ import com.quietjournal.dto.JournalEntryDto;
 import com.quietjournal.dto.JournalEntryResponseDto;
 import com.quietjournal.entity.JournalEntry;
 import com.quietjournal.entity.User;
+import com.quietjournal.exception.JournalNotFoundException;
+import com.quietjournal.exception.UserNotFoundException;
 import com.quietjournal.repository.JournalEntryRepository;
 import com.quietjournal.repository.UserRepository;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -32,7 +34,7 @@ public class JournalEntryService {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         System.out.println(username);
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         // 2. Build entity
         JournalEntry entry = JournalEntry.builder()
@@ -71,12 +73,12 @@ public class JournalEntryService {
                     existing.setEntryDate(dto.getEntryDate() != null ? LocalDate.parse(dto.getEntryDate()) : existing.getEntryDate());
                     return mapToDto(journalEntryRepository.save(existing));
                 })
-                .orElseThrow(() -> new RuntimeException("Journal entry not found with id " + id));
+                .orElseThrow(() -> new JournalNotFoundException("Journal entry not found with id " + id));
     }
 
     public void deleteEntry(String id) {
         if (!journalEntryRepository.existsById(id)) {
-            throw new RuntimeException("Journal entry not found with id " + id);
+            throw new JournalNotFoundException("Journal entry not found with id " + id);
         }
         journalEntryRepository.deleteById(id);
     }

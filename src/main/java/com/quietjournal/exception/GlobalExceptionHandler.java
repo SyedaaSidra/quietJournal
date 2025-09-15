@@ -29,6 +29,7 @@ public class GlobalExceptionHandler {
 
         return new ResponseEntity<>(response, status);
     }
+    // Validation Errors
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponseDto> handleValidationException(
             MethodArgumentNotValidException ex, HttpServletRequest request) {
@@ -51,7 +52,7 @@ public class GlobalExceptionHandler {
     }
 
 
-
+    // User Errors
     @ExceptionHandler(UserNotFoundException.class)
     public ResponseEntity<ErrorResponseDto> handleUserNotFound(UserNotFoundException ex, HttpServletRequest request) {
         return buildErrorResponse(ex, HttpStatus.NOT_FOUND, "User Not Found", request);
@@ -65,6 +66,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InvalidCredentialsException.class)
     public ResponseEntity<ErrorResponseDto> handleInvalidCredentials(InvalidCredentialsException ex, HttpServletRequest request) {
         return buildErrorResponse(ex, HttpStatus.UNAUTHORIZED, "Invalid Credentials", request);
+    }
+
+    //  Journal Errors
+    @ExceptionHandler(JournalNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> handleJournalNotFound(JournalNotFoundException ex, HttpServletRequest request) {
+        return buildErrorResponse(ex, HttpStatus.NOT_FOUND, "Journal Entry Not Found", request);
     }
 
     @ExceptionHandler(Exception.class) // fallback for unexpected errors
