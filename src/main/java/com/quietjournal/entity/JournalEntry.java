@@ -1,35 +1,55 @@
 package com.quietjournal.entity;
 
+import com.quietjournal.model.Mood;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Entity
 @Table(name = "journal_entries")
-@Data
-@Builder
-@AllArgsConstructor
+@Getter
+@Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class JournalEntry {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @Column(nullable = false, length = 1000)
+    @Column(nullable = false)
+    private String title;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    private String mood;  // later we’ll use Enum
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Mood mood;
 
-    private String imageUrl;
+    @ElementCollection
+    @CollectionTable(name = "journal_images", joinColumns = @JoinColumn(name = "entry_id"))
+    @Column(name = "image_url")
+    private java.util.List<String> images;
 
-    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    // Each journal belongs to one user
+    private LocalDate entryDate;
+
+    // 🔗 Relationship: many journal entries belong to one user
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    @PrePersist
+    public void prePersist() {
+        this.createdAt = LocalDateTime.now();
+        if (this.entryDate == null) {
+            this.entryDate = LocalDate.now();
+        }
+    }
 }
