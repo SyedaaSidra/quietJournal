@@ -54,31 +54,53 @@ public class JournalEntryService {
     }
 
     public List<JournalEntryResponseDto> getAllEntries() {
-        return journalEntryRepository.findAll()
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new JournalNotFoundException("User not found"));
+        return journalEntryRepository.findByUserId(user.getId())
                 .stream()
                 .map(this::mapToDto)
                 .collect(Collectors.toList());
     }
 
     public Optional<JournalEntryResponseDto> getEntryById(String id) {
-        return journalEntryRepository.findById(id).map(this::mapToDto);
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new JournalNotFoundException("User not found"));
+        return journalEntryRepository.findById(id)
+                .filter(entry -> entry.getUser().getId().equals(user.getId()))
+                .map(this::mapToDto);
     }
 
     public JournalEntryResponseDto updateEntry(String id, JournalEntryDto dto) {
-        return journalEntryRepository.findById(id)
-                .map(existing -> {
-                    existing.setTitle(dto.getTitle());
-                    existing.setContent(dto.getContent());
-                    existing.setMood(dto.getMood());
-                    existing.setEntryDate(dto.getEntryDate() != null ? LocalDate.parse(dto.getEntryDate()) : existing.getEntryDate());
-                    return mapToDto(journalEntryRepository.save(existing));
-                })
+
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new JournalNotFoundException("User not found"));
+
+        JournalEntry entry = journalEntryRepository.findById(id)
                 .orElseThrow(() -> new JournalNotFoundException("Journal entry not found with id " + id));
-    }
+
+        if (!entry.getUser().getId().equals(user.getId())) {
+            throw new JournalNotFoundException("You are not authorized to update this entry");
+        }
+        entry.setTitle(dto.getTitle());
+        entry.setContent(dto.getContent());
+        entry.setMood(dto.getMood());
+        entry.setEntryDate(dto.getEntryDate() != null ? LocalDate.parse(dto.getEntryDate()) : entry.getEntryDate());
+
+        return mapToDto(journalEntryRepository.save(entry));}
 
     public void deleteEntry(String id) {
-        if (!journalEntryRepository.existsById(id)) {
-            throw new JournalNotFoundException("Journal entry not found with id " + id);
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        JournalEntry entry = journalEntryRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Journal entry not found with id " + id));
+
+        if (!entry.getUser().getId().equals(user.getId())) {
+            throw new RuntimeException("You are not authorized to delete this entry");
         }
         journalEntryRepository.deleteById(id);
     }

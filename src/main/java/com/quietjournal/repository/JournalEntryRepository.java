@@ -11,5 +11,6 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Stri
     // Find all journal entries for a specific user
     List<JournalEntry> findByUser(User user);
     List<JournalEntry> findByUserOrderByEntryDateDesc(User user);
+    List<JournalEntry> findByUserId(String userId);
 }
 
