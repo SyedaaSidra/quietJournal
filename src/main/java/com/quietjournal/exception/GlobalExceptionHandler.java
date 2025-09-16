@@ -74,7 +74,13 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(ex, HttpStatus.NOT_FOUND, "Journal Entry Not Found", request);
     }
 
-    @ExceptionHandler(Exception.class) // fallback for unexpected errors
+    @ExceptionHandler(UnauthorizedAccessException.class)
+    public ResponseEntity<ErrorResponseDto> handleUnauthorizedAccess(JournalNotFoundException ex, HttpServletRequest request) {
+        return buildErrorResponse(ex, HttpStatus.FORBIDDEN, "User is Unauthorized", request);
+    }
+
+    // fallback for unexpected errors
+    @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponseDto> handleGeneric(Exception ex, HttpServletRequest request) {
         return buildErrorResponse(ex, HttpStatus.INTERNAL_SERVER_ERROR, "Server Error", request);
     }

@@ -5,6 +5,7 @@ import com.quietjournal.dto.JournalEntryResponseDto;
 import com.quietjournal.entity.JournalEntry;
 import com.quietjournal.entity.User;
 import com.quietjournal.exception.JournalNotFoundException;
+import com.quietjournal.exception.UnauthorizedAccessException;
 import com.quietjournal.exception.UserNotFoundException;
 import com.quietjournal.repository.JournalEntryRepository;
 import com.quietjournal.repository.UserRepository;
@@ -56,7 +57,7 @@ public class JournalEntryService {
     public List<JournalEntryResponseDto> getAllEntries() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new JournalNotFoundException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
         return journalEntryRepository.findByUserId(user.getId())
                 .stream()
                 .map(this::mapToDto)
@@ -66,7 +67,7 @@ public class JournalEntryService {
     public Optional<JournalEntryResponseDto> getEntryById(String id) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new JournalNotFoundException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
         return journalEntryRepository.findById(id)
                 .filter(entry -> entry.getUser().getId().equals(user.getId()))
                 .map(this::mapToDto);
@@ -76,13 +77,13 @@ public class JournalEntryService {
 
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new JournalNotFoundException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         JournalEntry entry = journalEntryRepository.findById(id)
                 .orElseThrow(() -> new JournalNotFoundException("Journal entry not found with id " + id));
 
         if (!entry.getUser().getId().equals(user.getId())) {
-            throw new JournalNotFoundException("You are not authorized to update this entry");
+            throw new UnauthorizedAccessException("You are not authorized to update this entry");
         }
         entry.setTitle(dto.getTitle());
         entry.setContent(dto.getContent());
@@ -94,13 +95,13 @@ public class JournalEntryService {
     public void deleteEntry(String id) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         JournalEntry entry = journalEntryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Journal entry not found with id " + id));
+                .orElseThrow(() -> new JournalNotFoundException("Journal entry not found with id " + id));
 
         if (!entry.getUser().getId().equals(user.getId())) {
-            throw new RuntimeException("You are not authorized to delete this entry");
+            throw new UnauthorizedAccessException("You are not authorized to delete this entry");
         }
         journalEntryRepository.deleteById(id);
     }
