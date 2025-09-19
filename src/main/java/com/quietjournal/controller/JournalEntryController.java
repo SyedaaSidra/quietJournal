@@ -4,9 +4,14 @@ import com.quietjournal.dto.JournalEntryDto;
 import com.quietjournal.dto.JournalEntryResponseDto;
 import com.quietjournal.service.JournalEntryService;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+
+
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -20,9 +25,11 @@ public class JournalEntryController {
     }
 
     // Create new entry
-    @PostMapping
-    public ResponseEntity<JournalEntryResponseDto> createEntry(@Valid @RequestBody JournalEntryDto dto) {
-        JournalEntryResponseDto saved = journalEntryService.createEntry(dto);
+    @PostMapping( consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<JournalEntryResponseDto> createEntry( @RequestPart("data") @Valid JournalEntryDto dto,
+                                                                @RequestPart(value = "images", required = false) MultipartFile[] images)
+     {
+        JournalEntryResponseDto saved = journalEntryService.createEntry(dto,images);
         return ResponseEntity.ok(saved);
     }
 
@@ -41,12 +48,13 @@ public class JournalEntryController {
     }
 
     // Update entry
-    @PutMapping("/{id}")
+    @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
     public ResponseEntity<JournalEntryResponseDto> updateEntry(
             @PathVariable String id,
-            @Valid @RequestBody JournalEntryDto updatedDto
+            @RequestPart("data") @Valid JournalEntryDto updatedDto,
+            @RequestPart(value = "images", required = false) MultipartFile[] images
     ) {
-        return ResponseEntity.ok(journalEntryService.updateEntry(id, updatedDto));
+        return ResponseEntity.ok(journalEntryService.updateEntry(id, updatedDto,images));
     }
 
     // Delete entry

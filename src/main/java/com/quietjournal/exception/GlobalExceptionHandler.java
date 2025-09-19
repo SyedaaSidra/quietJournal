@@ -1,6 +1,7 @@
 package com.quietjournal.exception;
 
 import com.quietjournal.dto.ErrorResponseDto;
+import org.apache.catalina.filters.ExpiresFilter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -75,9 +76,15 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(UnauthorizedAccessException.class)
-    public ResponseEntity<ErrorResponseDto> handleUnauthorizedAccess(JournalNotFoundException ex, HttpServletRequest request) {
+    public ResponseEntity<ErrorResponseDto> handleUnauthorizedAccess(UnauthorizedAccessException ex, HttpServletRequest request) {
         return buildErrorResponse(ex, HttpStatus.FORBIDDEN, "User is Unauthorized", request);
     }
+
+    @ExceptionHandler(ImageUploadException.class)
+    public ResponseEntity<ErrorResponseDto> handleImageUploadException(ImageUploadException ex, HttpServletRequest request) {
+        return buildErrorResponse(ex, HttpStatus.INTERNAL_SERVER_ERROR, "Image upload failed due to external storage error", request);
+    }
+
 
     // fallback for unexpected errors
     @ExceptionHandler(Exception.class)
