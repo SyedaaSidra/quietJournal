@@ -38,10 +38,6 @@ public class JournalEntryService {
         this.userRepository = userRepository;
         this.supabaseWebClient = supabaseWebClient;
        this.supabaseProps = supabaseProps;
-
-       System.out.println(supabaseProps.getBucket());
-       System.out.println(supabaseProps.getKey());
-       System.out.println(supabaseProps.getUrl());
     }
 
     // Create new journal entry
@@ -73,6 +69,7 @@ public class JournalEntryService {
         return mapToDto(saved);
     }
 
+    // Get All Entries
     public List<JournalEntryResponseDto> getAllEntries() {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username)
@@ -83,14 +80,21 @@ public class JournalEntryService {
                 .collect(Collectors.toList());
     }
 
-    public Optional<JournalEntryResponseDto> getEntryById(String id) {
+    public JournalEntryResponseDto getEntryById(String id) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
-        return journalEntryRepository.findById(id)
-                .filter(entry -> entry.getUser().getId().equals(user.getId()))
-                .map(this::mapToDto);
+
+        JournalEntry entry = journalEntryRepository.findById(id)
+                .orElseThrow(() -> new JournalNotFoundException("Journal entry not found with id " + id));
+
+        if (!entry.getUser().getId().equals(user.getId())) {
+            throw new UnauthorizedAccessException("You are not authorized to view this entry");
+        }
+
+        return mapToDto(entry);
     }
+
 
     public JournalEntryResponseDto updateEntry(String id, JournalEntryDto dto,MultipartFile[] files) {
 
@@ -128,7 +132,6 @@ public class JournalEntryService {
         }
         journalEntryRepository.deleteById(id);
     }
-
 
     //  method to upload image
     // Upload a single file
@@ -168,7 +171,6 @@ public class JournalEntryService {
         return imageUrls;
     }
 
-
     public String generateSignedUrl(String path) {
         try {
             String response = supabaseWebClient.post()
@@ -189,10 +191,6 @@ public class JournalEntryService {
             throw new ImageUploadException("Failed to generate signed URL for " + path, ex);
         }
     }
-
-
-
-
 
     // Mapper
     private JournalEntryResponseDto mapToDto(JournalEntry entry) {

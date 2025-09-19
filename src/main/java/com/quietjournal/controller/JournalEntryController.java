@@ -11,7 +11,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 
 
-import java.io.IOException;
+
 import java.util.List;
 
 @RestController
@@ -42,10 +42,8 @@ public class JournalEntryController {
     // Get entry by ID
     @GetMapping("/{id}")
     public ResponseEntity<JournalEntryResponseDto> getEntryById(@PathVariable String id) {
-        return journalEntryService.getEntryById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
+        JournalEntryResponseDto dto = journalEntryService.getEntryById(id);
+        return ResponseEntity.ok(dto);}
 
     // Update entry
     @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
