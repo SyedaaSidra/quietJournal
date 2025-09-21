@@ -38,20 +38,23 @@ public class JournalEntryService {
         this.userRepository = userRepository;
         this.supabaseWebClient = supabaseWebClient;
        this.supabaseProps = supabaseProps;
+
+
+       System.out.println(supabaseProps.getUrl());
+        System.out.println(supabaseProps.getKey());
     }
 
     // Create new journal entry
     public JournalEntryResponseDto createEntry(JournalEntryDto dto, MultipartFile[] files) {
-        // 1. Get logged-in user
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        System.out.println(username);
+
+        String username = getUsernameFromContext();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
         List<String> imageUrls = uploadImagesToSupabase(files);
 
 
-        // 2. Build entity
+
         JournalEntry entry = JournalEntry.builder()
                 .title(dto.getTitle())
                 .content(dto.getContent())
@@ -62,16 +65,16 @@ public class JournalEntryService {
                 .images(imageUrls)
                 .build();
 
-        // 3. Save
+
         JournalEntry saved = journalEntryRepository.save(entry);
 
-        // 4. Map to Response DTO
+
         return mapToDto(saved);
     }
 
     // Get All Entries
     public List<JournalEntryResponseDto> getAllEntries() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = getUsernameFromContext();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
         return journalEntryRepository.findByUserId(user.getId())
@@ -81,7 +84,7 @@ public class JournalEntryService {
     }
 
     public JournalEntryResponseDto getEntryById(String id) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = getUsernameFromContext();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -96,31 +99,53 @@ public class JournalEntryService {
     }
 
 
-    public JournalEntryResponseDto updateEntry(String id, JournalEntryDto dto,MultipartFile[] files) {
-
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+    public JournalEntryResponseDto updateEntry( String id, JournalEntryDto dto,MultipartFile[] files,List<String> keepPaths) {
+        System.out.println(dto);
+        String username = getUsernameFromContext();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-        JournalEntry entry = journalEntryRepository.findById(id)
+        JournalEntry entry = journalEntryRepository.findById(String.valueOf(id))
                 .orElseThrow(() -> new JournalNotFoundException("Journal entry not found with id " + id));
 
         if (!entry.getUser().getId().equals(user.getId())) {
             throw new UnauthorizedAccessException("You are not authorized to update this entry");
         }
-        if (files != null && files.length > 0) {
-            entry.setImages(uploadImagesToSupabase(files));
+        // Current DB paths
+        List<String> dbPaths = entry.getImages() != null ? new ArrayList<>(entry.getImages()) : new ArrayList<>();
+
+          System.out.println("keepPath"+keepPaths);
+          System.out.println(files);
+          System.out.println("dbpaths"+dbPaths);
+
+        // Keep list from client (fallback empty list if null)
+        List<String> toKeep = keepPaths != null ? keepPaths : new ArrayList<>();
+    System.out.println("toKeep"+toKeep);
+        // Delete unwanted images
+        List<String> toDelete = dbPaths.stream()
+                .filter(path -> !toKeep.contains(path))
+                .toList();
+        for (String path : toDelete) {
+            deleteImageFromSupabase(path);
         }
 
+        // Upload new files
+        List<String> uploaded = uploadImagesToSupabase(files);
+     System.out.println("uploaded"+uploaded);
+        // Final images = kept + uploaded
+        List<String> finalImages = new ArrayList<>();
+        finalImages.addAll(toKeep);
+        finalImages.addAll(uploaded);
+          System.out.println("finalImages"+finalImages);
         entry.setTitle(dto.getTitle());
         entry.setContent(dto.getContent());
         entry.setMood(dto.getMood());
         entry.setEntryDate(dto.getEntryDate() != null ? LocalDate.parse(dto.getEntryDate()) : entry.getEntryDate());
-
+        entry.setImages(finalImages);
         return mapToDto(journalEntryRepository.save(entry));}
 
     public void deleteEntry(String id) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String username = getUsernameFromContext();
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UserNotFoundException("User not found"));
 
@@ -132,6 +157,42 @@ public class JournalEntryService {
         }
         journalEntryRepository.deleteById(id);
     }
+
+    //  Extracted delete call to reuse in updateEntry
+    private void deleteImageFromSupabase(String path) {
+        supabaseWebClient.delete()
+                .uri("/{bucket}/{path}", supabaseProps.getBucket(), path)
+                .retrieve()
+                .bodyToMono(Void.class)
+                .block();
+    }
+
+
+
+    public void deleteImage(String journalId, String imagePath) {
+        String username = getUsernameFromContext();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        JournalEntry entry = journalEntryRepository.findById(journalId)
+                .orElseThrow(() -> new JournalNotFoundException("Journal entry not found with id " + journalId));
+
+        if (!entry.getUser().getId().equals(user.getId())) {
+            throw new UnauthorizedAccessException("You are not authorized to update this entry");
+        }
+
+        //  Delete from Supabase storage
+        supabaseWebClient.delete()
+                .uri("/{bucket}/{path}", supabaseProps.getBucket(), imagePath)
+                .retrieve()
+                .bodyToMono(Void.class)
+                .block();
+
+        //  Remove from DB list
+        entry.getImages().remove(imagePath);
+        journalEntryRepository.save(entry);
+    }
+
 
     //  method to upload image
     // Upload a single file
@@ -203,11 +264,42 @@ public class JournalEntryService {
                 .title(entry.getTitle())
                 .content(entry.getContent())
                 .mood(entry.getMood())
+                .imagePaths(entry.getImages() != null ? entry.getImages() : new ArrayList<>())
                 .images(signedUrls) // return signed URLs instead of raw paths
                 .createdAt(entry.getCreatedAt())
                 .entryDate(entry.getEntryDate())
                 .build();
     }
+
+    private  String getUsernameFromContext(){
+        return SecurityContextHolder.getContext().getAuthentication().getName();
+    }
+
+
+    public List<JournalEntryResponseDto> getAllEntriesDebug() {
+        // Get logged-in username from SecurityContext
+        String username = getUsernameFromContext();
+        System.out.println("DEBUG: Logged-in user = " + username);
+
+        // Fetch the User entity
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        System.out.println("DEBUG: User ID = " + user.getId());
+
+        // Fetch entries for this user
+        List<JournalEntry> entries = journalEntryRepository.findByUserId(user.getId());
+        System.out.println("DEBUG: Entries found = " + entries.size());
+        for (JournalEntry e : entries) {
+            System.out.println("DEBUG: Entry ID = " + e.getId() + ", Title = " + e.getTitle());
+        }
+
+        // Map to DTO
+        return entries.stream()
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
 
 }
 

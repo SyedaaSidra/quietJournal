@@ -19,6 +19,7 @@ public class JournalEntryResponseDto {
     private String content;
     private Mood mood;
     private List<String> images;
+    private List<String> imagePaths;
     private LocalDateTime createdAt;
     private LocalDate entryDate;
 }

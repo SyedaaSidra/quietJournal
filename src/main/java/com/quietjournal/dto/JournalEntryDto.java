@@ -23,7 +23,5 @@ public class JournalEntryDto {
     @NotNull(message = "Mood is required")
     private Mood mood;
 
-    private List<String> images;
-
-    private String entryDate; // Optional, format YYYY-MM-DD
+    private String entryDate;
 }
