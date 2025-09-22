@@ -65,14 +65,7 @@ public class JournalEntryController {
     }
 
 
-    @DeleteMapping("/{id}/images")
-    public ResponseEntity<Void> deleteImage(
-            @PathVariable String id,
-            @RequestParam("path") String imagePath
-    ) {
-        journalEntryService.deleteImage(id, imagePath);
-        return ResponseEntity.noContent().build();
-    }
+
 
 
 }

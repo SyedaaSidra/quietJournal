@@ -1,20 +1,17 @@
 package com.quietjournal.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.quietjournal.dto.JournalEntryDto;
 import com.quietjournal.dto.JournalEntryResponseDto;
 import com.quietjournal.entity.JournalEntry;
 import com.quietjournal.entity.User;
-import com.quietjournal.exception.ImageUploadException;
 import com.quietjournal.exception.JournalNotFoundException;
 import com.quietjournal.exception.UnauthorizedAccessException;
 import com.quietjournal.exception.UserNotFoundException;
 import com.quietjournal.repository.JournalEntryRepository;
 import com.quietjournal.repository.UserRepository;
 import com.quietjournal.util.SupabaseProperties;
-import org.springframework.http.MediaType;
-import org.springframework.http.client.MultipartBodyBuilder;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,11 +30,13 @@ public class JournalEntryService {
     private final JournalEntryRepository journalEntryRepository;
     private final UserRepository userRepository;
     private final WebClient supabaseWebClient;
-    public JournalEntryService(JournalEntryRepository journalEntryRepository, UserRepository userRepository, WebClient supabaseWebClient,SupabaseProperties supabaseProps) {
+    private final SupabaseService supabaseService;
+    public JournalEntryService(JournalEntryRepository journalEntryRepository, UserRepository userRepository, WebClient supabaseWebClient,SupabaseProperties supabaseProps,SupabaseService supabaseService) {
         this.journalEntryRepository = journalEntryRepository;
         this.userRepository = userRepository;
         this.supabaseWebClient = supabaseWebClient;
        this.supabaseProps = supabaseProps;
+       this.supabaseService = supabaseService;
 
 
        System.out.println(supabaseProps.getUrl());
@@ -115,7 +114,7 @@ public class JournalEntryService {
         List<String> dbPaths = entry.getImages() != null ? new ArrayList<>(entry.getImages()) : new ArrayList<>();
 
           System.out.println("keepPath"+keepPaths);
-          System.out.println(files);
+
           System.out.println("dbpaths"+dbPaths);
 
         // Keep list from client (fallback empty list if null)
@@ -129,7 +128,7 @@ public class JournalEntryService {
             deleteImageFromSupabase(path);
         }
 
-        // Upload new files
+         //Upload new files
         List<String> uploaded = uploadImagesToSupabase(files);
      System.out.println("uploaded"+uploaded);
         // Final images = kept + uploaded
@@ -158,100 +157,23 @@ public class JournalEntryService {
         journalEntryRepository.deleteById(id);
     }
 
-    //  Extracted delete call to reuse in updateEntry
+
+
+    // ----------------- IMAGE HELPERS -----------------
     private void deleteImageFromSupabase(String path) {
-        supabaseWebClient.delete()
-                .uri("/{bucket}/{path}", supabaseProps.getBucket(), path)
-                .retrieve()
-                .bodyToMono(Void.class)
-                .block();
+        supabaseService.deleteFile(supabaseProps.getBucket(), path);
     }
 
-
-
-    public void deleteImage(String journalId, String imagePath) {
-        String username = getUsernameFromContext();
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
-
-        JournalEntry entry = journalEntryRepository.findById(journalId)
-                .orElseThrow(() -> new JournalNotFoundException("Journal entry not found with id " + journalId));
-
-        if (!entry.getUser().getId().equals(user.getId())) {
-            throw new UnauthorizedAccessException("You are not authorized to update this entry");
-        }
-
-        //  Delete from Supabase storage
-        supabaseWebClient.delete()
-                .uri("/{bucket}/{path}", supabaseProps.getBucket(), imagePath)
-                .retrieve()
-                .bodyToMono(Void.class)
-                .block();
-
-        //  Remove from DB list
-        entry.getImages().remove(imagePath);
-        journalEntryRepository.save(entry);
+    private String generateSignedUrl(String path) {
+        return supabaseService.generateSignedUrl(supabaseProps.getBucket(), path, 3600);
     }
 
-
-    //  method to upload image
-    // Upload a single file
-    private String uploadImageToSupabase(MultipartFile file) {
-        String path = UUID.randomUUID() + "-" + file.getOriginalFilename();
-   try{
-
-       MultipartBodyBuilder builder = new MultipartBodyBuilder();
-       builder.part("file", file.getResource())
-               .filename(Objects.requireNonNull(file.getOriginalFilename()))
-               .contentType(file.getContentType() != null
-                       ? MediaType.parseMediaType(file.getContentType())
-                       : MediaType.APPLICATION_OCTET_STREAM);
-
-       supabaseWebClient.post()
-               .uri("/{bucket}/{path}", supabaseProps.getBucket(), path)
-               .contentType(MediaType.MULTIPART_FORM_DATA)
-               .bodyValue(builder.build())
-               .retrieve()
-               .bodyToMono(String.class)
-               .block();
-       return path;
-       }catch (Exception ex) {
-       throw new ImageUploadException("Failed to upload image " + file.getOriginalFilename(), ex);
-
-   }
-    }
-
-    // Upload multiple files
     private List<String> uploadImagesToSupabase(MultipartFile[] files) {
-        List<String> imageUrls = new ArrayList<>();
-        if (files != null && files.length > 0) {
-            for (MultipartFile file : files) {
-                imageUrls.add(uploadImageToSupabase(file));
-            }
-        }
-        return imageUrls;
+        return supabaseService.uploadFiles(supabaseProps.getBucket(), files);
     }
 
-    public String generateSignedUrl(String path) {
-        try {
-            String response = supabaseWebClient.post()
-                    .uri("/sign/{bucket}/{path}", supabaseProps.getBucket(), path)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue("{\"expiresIn\":3600}")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
 
-            JsonNode jsonNode = objectMapper.readTree(response);
 
-            String signedPath = jsonNode.get("signedURL").asText();
-
-            return supabaseProps.getUrl() + "/storage/v1" + signedPath;
-        } catch (Exception ex) {
-
-            throw new ImageUploadException("Failed to generate signed URL for " + path, ex);
-        }
-    }
 
     // Mapper
     private JournalEntryResponseDto mapToDto(JournalEntry entry) {
@@ -276,30 +198,10 @@ public class JournalEntryService {
     }
 
 
-    public List<JournalEntryResponseDto> getAllEntriesDebug() {
-        // Get logged-in username from SecurityContext
-        String username = getUsernameFromContext();
-        System.out.println("DEBUG: Logged-in user = " + username);
-
-        // Fetch the User entity
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new UserNotFoundException("User not found"));
-
-        System.out.println("DEBUG: User ID = " + user.getId());
-
-        // Fetch entries for this user
-        List<JournalEntry> entries = journalEntryRepository.findByUserId(user.getId());
-        System.out.println("DEBUG: Entries found = " + entries.size());
-        for (JournalEntry e : entries) {
-            System.out.println("DEBUG: Entry ID = " + e.getId() + ", Title = " + e.getTitle());
-        }
-
-        // Map to DTO
-        return entries.stream()
-                .map(this::mapToDto)
-                .collect(Collectors.toList());
-    }
 
 
 }
+
+
+
 
