@@ -45,6 +45,7 @@ public class SecurityConfig {
                 })
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("api/users/**").authenticated()
                         .requestMatchers("/api/journal/**").authenticated()// signup/login open
                         .anyRequest().authenticated()                // everything else needs JWT
                 )

@@ -36,8 +36,6 @@ public class AuthService {
 
         User user = User.builder()
                 .username(userDto.getUsername())
-                .displayName(userDto.getDisplayName())
-                .avatarUrl(userDto.getAvatarUrl())
                 .password(passwordEncoder.encode(userDto.getPassword()))
                 .build();
 
