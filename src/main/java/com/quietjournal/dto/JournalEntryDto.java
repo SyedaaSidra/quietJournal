@@ -23,5 +23,7 @@ public class JournalEntryDto {
     @NotNull(message = "Mood is required")
     private Mood mood;
 
+    private List<String> tags;
+
     private String entryDate;
 }

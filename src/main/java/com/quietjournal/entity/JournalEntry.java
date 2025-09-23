@@ -6,6 +6,7 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
+import java.util.List;
 
 @Entity
 @Table(name = "journal_entries")
@@ -44,6 +45,15 @@ public class JournalEntry {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+
+    @ElementCollection
+    @CollectionTable(
+            name = "journal_tags",
+            joinColumns = @JoinColumn(name = "entry_id")
+    )
+    @Column(name = "tag")
+    private List<String> tags;
 
     @PrePersist
     public void prePersist() {

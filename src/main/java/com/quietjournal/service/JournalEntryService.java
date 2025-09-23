@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 public class JournalEntryService {
@@ -62,6 +63,7 @@ public class JournalEntryService {
                 .createdAt(LocalDateTime.now())
                 .user(user)
                 .images(imageUrls)
+                .tags(dto.getTags() != null ? dto.getTags() : new ArrayList<>())
                 .build();
 
 
@@ -141,6 +143,7 @@ public class JournalEntryService {
         entry.setMood(dto.getMood());
         entry.setEntryDate(dto.getEntryDate() != null ? LocalDate.parse(dto.getEntryDate()) : entry.getEntryDate());
         entry.setImages(finalImages);
+        entry.setTags(dto.getTags() != null ? dto.getTags() : new ArrayList<>());
         return mapToDto(journalEntryRepository.save(entry));}
 
     public void deleteEntry(String id) {
@@ -188,14 +191,58 @@ public class JournalEntryService {
                 .mood(entry.getMood())
                 .imagePaths(entry.getImages() != null ? entry.getImages() : new ArrayList<>())
                 .images(signedUrls) // return signed URLs instead of raw paths
+                .tags(entry.getTags() != null ? entry.getTags() : new ArrayList<>())
                 .createdAt(entry.getCreatedAt())
                 .entryDate(entry.getEntryDate())
                 .build();
     }
 
+
+    public List<JournalEntryResponseDto> searchEntries(String q, List<String> tags) {
+        // load user's entries then filter server-side (simple and reliable for now)
+        String username = getUsernameFromContext();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        List<JournalEntry> entries = journalEntryRepository.findByUserId(user.getId());
+
+        Stream<JournalEntry> stream = entries.stream();
+
+        if (q != null && !q.isBlank()) {
+            String qLower = q.toLowerCase();
+            stream = stream.filter(e ->
+                    (e.getTitle() != null && e.getTitle().toLowerCase().contains(qLower)) ||
+                            (e.getContent() != null && e.getContent().toLowerCase().contains(qLower))
+            );
+        }
+
+        if (tags != null && !tags.isEmpty()) {
+            // require entry contain all requested tags; change to any-match if you prefer
+            stream = stream.filter(e -> {
+                List<String> entryTags = e.getTags() != null ? e.getTags() : Collections.emptyList();
+                return tags.stream().allMatch(entryTags::contains);
+            });
+        }
+
+        return stream
+                .map(this::mapToDto)
+                .collect(Collectors.toList());
+    }
+
+
     private  String getUsernameFromContext(){
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
+
+
+    public List<String> getDistinctTags() {
+        String username = getUsernameFromContext();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        return journalEntryRepository.findDistinctTagsByUserId(user.getId());
+    }
+
 
 
 

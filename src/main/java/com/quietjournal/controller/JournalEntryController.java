@@ -65,6 +65,20 @@ public class JournalEntryController {
     }
 
 
+    @GetMapping("/search")
+    public ResponseEntity<List<JournalEntryResponseDto>> search(
+            @RequestParam(value = "q", required = false) String q,
+            @RequestParam(value = "tags", required = false) List<String> tags
+    ) {
+        List<JournalEntryResponseDto> results = journalEntryService.searchEntries(q, tags);
+        return ResponseEntity.ok(results);
+    }
+
+
+    @GetMapping("/tags")
+    public ResponseEntity<List<String>> getTags() {
+        return ResponseEntity.ok(journalEntryService.getDistinctTags());
+    }
 
 
 

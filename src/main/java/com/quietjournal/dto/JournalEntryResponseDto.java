@@ -21,5 +21,6 @@ public class JournalEntryResponseDto {
     private List<String> images;
     private List<String> imagePaths;
     private LocalDateTime createdAt;
+    private List<String> tags;
     private LocalDate entryDate;
 }
