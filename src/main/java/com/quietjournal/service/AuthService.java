@@ -19,13 +19,15 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final SupabaseService  supabaseService;
 
     public AuthService(UserRepository userRepository,
                        PasswordEncoder passwordEncoder,
-                       JwtUtil jwtUtil) {
+                       JwtUtil jwtUtil,SupabaseService supabaseService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.supabaseService = supabaseService;
     }
 
     public UserResponseDto registerUser(UserDto userDto) {
@@ -53,14 +55,17 @@ public class AuthService {
         }
 
         String token = jwtUtil.generateToken(user.getUsername());
-
+        String signedAvatarUrl = null;
+        if (user.getAvatarUrl() != null) {
+            signedAvatarUrl = supabaseService.generateSignedUrl("journal-images", user.getAvatarUrl(),3600);
+        }
         return LoginResponseDto.builder()
                 .token(token)
                 .user(UserResponseDto.builder()
                         .id(user.getId())
                         .username(user.getUsername())
                         .displayName(user.getDisplayName())
-                        .avatarUrl(user.getAvatarUrl())
+                        .avatarUrl(signedAvatarUrl)
                         .createdAt(user.getCreatedAt())
                         .build())
                 .build();
@@ -69,11 +74,16 @@ public class AuthService {
     }
 
     private UserResponseDto mapToDto(User user) {
+
+        String signedAvatarUrl = null;
+        if (user.getAvatarUrl() != null) {
+            signedAvatarUrl = supabaseService.generateSignedUrl("journal-images", user.getAvatarUrl(),3600);
+        }
         return UserResponseDto.builder()
                 .id(user.getId())
                 .username(user.getUsername())
                 .displayName(user.getDisplayName())
-                .avatarUrl(user.getAvatarUrl())
+                .avatarUrl(signedAvatarUrl)
                 .createdAt(user.getCreatedAt())
                 .build();
     }
