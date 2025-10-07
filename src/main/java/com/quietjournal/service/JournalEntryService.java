@@ -243,6 +243,31 @@ public class JournalEntryService {
         return journalEntryRepository.findDistinctTagsByUserId(user.getId());
     }
 
+    // For logged-in user (frontend dashboard)
+    public Map<String, Long> getWeeklyMoodSummary() {
+        String username = getUsernameFromContext();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+        return getWeeklyMoodSummary(user.getId());
+    }
+
+    public Map<String, Long> getWeeklyMoodSummary(String userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        LocalDate now = LocalDate.now();
+        LocalDate weekStart = now.minusDays(6);
+
+        List<JournalEntry> entries = journalEntryRepository
+                .findByUserIdAndEntryDateBetween(user.getId(), weekStart, now);
+
+        return entries.stream()
+                .collect(Collectors.groupingBy(
+                        entry -> entry.getMood().name(), // converts Mood enum to String
+                        Collectors.counting()
+                ));
+    }
+
 
 
 

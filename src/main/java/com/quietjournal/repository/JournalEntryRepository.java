@@ -5,7 +5,7 @@ import com.quietjournal.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
+import java.time.LocalDate;
 import java.util.List;
 
 public interface JournalEntryRepository extends JpaRepository<JournalEntry, String> {
@@ -16,5 +16,8 @@ public interface JournalEntryRepository extends JpaRepository<JournalEntry, Stri
     List<JournalEntry> findByUserId(String userId);
     @Query("SELECT DISTINCT t FROM JournalEntry e JOIN e.tags t WHERE e.user.id = :userId")
     List<String> findDistinctTagsByUserId(@Param("userId") String userId);
+
+    List<JournalEntry> findByUserIdAndEntryDateBetween(String userId, LocalDate start, LocalDate end);
+
 }
 
